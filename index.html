@@ -544,6 +544,7 @@
           <option value="woodblock" selected>Dřevěný Woodblock</option>
           <option value="soft_claves">Dřívka (jemný klik)</option>
           <option value="deep_claves">Dřívka (hlubší tón)</option>
+          <option value="mechanical_metronome">Mechanický metronom</option>
           <option value="rimshot">Rimshot / Klik</option>
           <option value="cowbell">Cowbell (Agogô)</option>
           <option value="beep">Pípnutí / Beep</option>
@@ -563,6 +564,7 @@
           <option value="cowbell" selected>Cowbell (Zvon)</option>
           <option value="soft_claves">Dřívka (jemný klik)</option>
           <option value="deep_claves">Dřívka (hlubší tón)</option>
+          <option value="mechanical_metronome">Mechanický metronom</option>
           <option value="clave">Kovové Clave</option>
           <option value="woodblock">Dřevěný Block</option>
           <option value="shaker">Maracas / Shaker</option>
@@ -972,7 +974,7 @@
         click.connect(filter);
         filter.connect(gain);
 
-        gain.gain.setValueAtTime(volume * (isAccent ? 0.4 : 0.28), time);
+        gain.gain.setValueAtTime(volume * (isAccent ? 0.85 : 0.65), time);
         gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
         click.start(time);
         trackScheduledSource(click);
@@ -994,7 +996,7 @@
         filter.frequency.setValueAtTime(520, time);
         filter.Q.setValueAtTime(0.9, time);
         const clickGain = audioCtx.createGain();
-        clickGain.gain.setValueAtTime(volume * 0.22, time);
+        clickGain.gain.setValueAtTime(volume * 0.55, time);
         clickGain.gain.exponentialRampToValueAtTime(0.001, time + duration);
         click.connect(filter);
         filter.connect(clickGain);
@@ -1005,7 +1007,7 @@
         body.type = 'triangle';
         body.frequency.setValueAtTime(isAccent ? 280 : 220, time);
         body.frequency.exponentialRampToValueAtTime(110, time + duration);
-        bodyGain.gain.setValueAtTime(volume * 0.16, time);
+        bodyGain.gain.setValueAtTime(volume * 0.4, time);
         bodyGain.gain.exponentialRampToValueAtTime(0.001, time + duration);
         body.connect(bodyGain);
         bodyGain.connect(audioCtx.destination);
@@ -1016,6 +1018,41 @@
         trackScheduledSource(body);
         click.stop(time + duration);
         body.stop(time + duration);
+      }
+      else if (type === 'mechanical_metronome') {
+        const duration = 0.045;
+        const click = audioCtx.createOscillator();
+        const clickGain = audioCtx.createGain();
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(isAccent ? 1850 : 1350, time);
+        filter.Q.setValueAtTime(1.2, time);
+        click.type = 'triangle';
+        click.frequency.setValueAtTime(isAccent ? 1500 : 1100, time);
+        click.frequency.exponentialRampToValueAtTime(420, time + duration);
+        clickGain.gain.setValueAtTime(volume * 0.8, time);
+        clickGain.gain.exponentialRampToValueAtTime(0.001, time + duration);
+        click.connect(filter);
+        filter.connect(clickGain);
+        clickGain.connect(audioCtx.destination);
+
+        const clack = audioCtx.createOscillator();
+        const clackGain = audioCtx.createGain();
+        clack.type = 'square';
+        clack.frequency.setValueAtTime(isAccent ? 720 : 560, time + 0.016);
+        clack.frequency.exponentialRampToValueAtTime(260, time + 0.038);
+        clackGain.gain.setValueAtTime(0.001, time);
+        clackGain.gain.setValueAtTime(volume * 0.28, time + 0.016);
+        clackGain.gain.exponentialRampToValueAtTime(0.001, time + 0.04);
+        clack.connect(clackGain);
+        clackGain.connect(audioCtx.destination);
+
+        click.start(time);
+        clack.start(time + 0.016);
+        trackScheduledSource(click);
+        trackScheduledSource(clack);
+        click.stop(time + duration);
+        clack.stop(time + 0.04);
       }
       else if (type === 'rimshot') {
         osc.type = 'sine';
