@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Polymetrický Metronom</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <style>
+    :root {
+      --bg: #090d16;
+      --card-bg: rgba(22, 30, 49, 0.75);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --accent-cyan: #06b6d4;
+      --accent-emerald: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-rose: #f43f5e;
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-tap-highlight-color: transparent; }
+    body {
+      background-color: var(--bg);
+      color: var(--text-main);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      min-height: 100vh;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: env(safe-area-inset-top, 8px) 12px env(safe-area-inset-bottom, 8px) 12px;
+      overflow-x: hidden;
+      overflow-y: auto;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 4px 4px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .badge {
+      font-size: 0.65rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 9999px;
+      background: rgba(6, 182, 212, 0.15);
+      color: var(--accent-cyan);
+      border: 1px solid rgba(6, 182, 212, 0.3);
+    }
+    h1 { font-size: 1.15rem; font-weight: 800; letter-spacing: -0.02em; }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 10px 12px;
+      backdrop-filter: blur(12px);
+    }
+    .timeline-container {
+      position: relative;
+      height: 38px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 10px;
+      overflow: hidden;
+      margin: 4px 0 8px 0;
+    }
+    .playhead {
+      position: absolute;
+      top: 0; bottom: 0; width: 2px;
+      background: #ffffff;
+      box-shadow: 0 0 10px #ffffff;
+      z-index: 10;
+      transform: translateX(-1px);
+      transition: left 0.03s linear;
+    }
+    .lane {
+      position: relative;
+      height: 19px;
+      width: 100%;
+      border-bottom: 1px dashed rgba(255,255,255,0.06);
+    }
+    .lane:last-child { border-bottom: none; }
+    .tick-mark {
+      position: absolute;
+      top: 3px;
+      width: 7px;
+      height: 13px;
+      border-radius: 3px;
+      transform: translateX(-50%);
+      transition: transform 0.08s ease, filter 0.08s ease;
+    }
+    .tick-p1 { background: #06b6d4; opacity: 0.6; }
+    .tick-p1.downbeat { background: #38bdf8; width: 9px; opacity: 0.95; }
+    .tick-p2 { background: #10b981; opacity: 0.7; }
+    .tick-mark.active {
+      transform: translateX(-50%) scale(1.4);
+      filter: brightness(1.6) drop-shadow(0 0 6px currentColor);
+      opacity: 1;
+    }
+    .tick-mark.clash {
+      background: #f59e0b !important;
+    }
+    .tempo-box {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .bpm-display {
+      text-align: center;
+      line-height: 1;
+    }
+    .bpm-val {
+      font-size: 2.1rem;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      color: #fff;
+    }
+    .bpm-sub {
+      font-size: 0.65rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+    }
+    .step-btn {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: var(--text-main);
+      font-size: 0.85rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+    .step-btn:active { background: rgba(255,255,255,0.18); transform: scale(0.95); }
+    .tap-btn {
+      padding: 0 12px;
+      height: 38px;
+      border-radius: 10px;
+      background: rgba(245, 158, 11, 0.12);
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      color: var(--accent-amber);
+      font-weight: 700;
+      font-size: 0.8rem;
+      cursor: pointer;
+    }
+    .tap-btn:active { background: rgba(245, 158, 11, 0.28); }
+    .slider-row {
+      margin-top: 6px;
+      display: flex;
+      align-items: center;
+    }
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 6px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 3px;
+      outline: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--accent-cyan);
+      box-shadow: 0 0 8px rgba(6,182,212,0.6);
+      cursor: pointer;
+    }
+    .tracks-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin: 8px 0;
+    }
+    .track-card {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .track-title {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .t1-color { color: var(--accent-cyan); }
+    .t2-color { color: var(--accent-emerald); }
+    select {
+      width: 100%;
+      background: #0f172a;
+      color: #f1f5f9;
+      border: 1px solid rgba(255,255,255,0.15);
+      padding: 5px 6px;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      outline: none;
+    }
+    .track-ctrls {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.7rem;
+    }
+    .mute-btn {
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      border: 1px solid rgba(255,255,255,0.15);
+      background: rgba(255,255,255,0.05);
+      color: var(--text-muted);
+      cursor: pointer;
+    }
+    .mute-btn.active {
+      background: var(--accent-rose);
+      color: #fff;
+      border-color: var(--accent-rose);
+    }
+    .cycle-settings {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      margin-bottom: 8px;
+      font-size: 0.72rem;
+    }
+    .config-pill {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px;
+      padding: 6px;
+      text-align: center;
+    }
+    .config-label {
+      color: var(--text-muted);
+      font-size: 0.62rem;
+      text-transform: uppercase;
+      display: block;
+      margin-bottom: 2px;
+    }
+    .play-btn {
+      width: 100%;
+      padding: 14px 0;
+      font-size: 1.15rem;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      border-radius: 14px;
+      border: none;
+      background: linear-gradient(135deg, #06b6d4, #0284c7);
+      color: #031320;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 4px 18px rgba(6, 182, 212, 0.35);
+      transition: all 0.15s ease;
+    }
+    .play-btn.running {
+      background: linear-gradient(135deg, #f43f5e, #e11d48);
+      color: #fff;
+      box-shadow: 0 4px 18px rgba(244, 63, 94, 0.4);
+    }
+    .play-btn:active { transform: scale(0.98); }
+    .cycle-info {
+      text-align: center;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div>
+    <header>
+      <div class="brand">
+        <h1>Polymetrický Metronom</h1>
+        <span class="badge">PWA</span>
+      </div>
+      <span id="installBtn" style="display:none; font-size:0.7rem; background:#38bdf8; color:#082f49; font-weight:700; padding:3px 8px; border-radius:6px; cursor:pointer;">Instalovat</span>
+    </header>
+
+    <div class="timeline-container" id="timeline">
+      <div class="playhead" id="playhead"></div>
+      <div class="lane" id="lane1"></div>
+      <div class="lane" id="lane2"></div>
+    </div>
+
+    <div class="card" style="margin-bottom: 8px;">
+      <div class="tempo-box">
+        <div style="display:flex; gap:4px;">
+          <button class="step-btn" id="bpmDown5">-5</button>
+          <button class="step-btn" id="bpmDown1">-1</button>
+        </div>
+        <div class="bpm-display">
+          <div class="bpm-val" id="bpmText">120</div>
+          <div class="bpm-sub">BPM (čtvrťové)</div>
+        </div>
+        <div style="display:flex; gap:4px;">
+          <button class="step-btn" id="bpmUp1">+1</button>
+          <button class="step-btn" id="bpmUp5">+5</button>
+        </div>
+        <button class="tap-btn" id="tapBtn">TAP</button>
+      </div>
+      <div class="slider-row">
+        <input type="range" id="bpmSlider" min="40" max="260" value="120">
+      </div>
+    </div>
+
+    <div class="cycle-settings">
+      <div class="config-pill">
+        <span class="config-label">Počet taktů</span>
+        <select id="barCountSelect">
+          <option value="1">1 takt</option>
+          <option value="2" selected>2 takty</option>
+          <option value="3">3 takty</option>
+          <option value="4">4 takty</option>
+        </select>
+      </div>
+      <div class="config-pill">
+        <span class="config-label">Metrum (Doby)</span>
+        <select id="meterSelect">
+          <option value="3">3/4 (Valčík)</option>
+          <option value="4" selected>4/4 (Základní)</option>
+          <option value="5">5/4 (Liché)</option>
+          <option value="6">6/8 (Složené)</option>
+          <option value="7">7/8 (Balkán)</option>
+        </select>
+      </div>
+      <div class="config-pill">
+        <span class="config-label">Polyrytmika</span>
+        <select id="polyPreset">
+          <option value="dotted_eighth" selected>Tečkovaná osmina (3/16)</option>
+          <option value="dotted_quarter">Tečkovaná čtvrťová (3/8)</option>
+          <option value="quarter_triplet">Čtvrtková triola (3:2)</option>
+          <option value="eighth_triplet">Osminová triola (3:1)</option>
+          <option value="quintuplet">Pětidobá (5 nad cyklem)</option>
+          <option value="septuplet">Sedmidobá (7 nad cyklem)</option>
+          <option value="dotted_half">Tečkovaná půlová (6 dob)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="tracks-grid">
+      <div class="track-card">
+        <div class="track-title t1-color">
+          <span>Doby (Zvuk 1)</span>
+          <button class="mute-btn" id="mute1">MUTE</button>
+        </div>
+        <select id="sound1">
+          <option value="woodblock" selected>Dřevěný Woodblock</option>
+          <option value="rimshot">Rimshot / Klik</option>
+          <option value="cowbell">Cowbell (Agogô)</option>
+          <option value="beep">Pípnutí / Beep</option>
+        </select>
+        <div class="track-ctrls">
+          <span style="color:var(--text-muted);">Hlasitost</span>
+          <input type="range" id="vol1" min="0" max="1" step="0.05" value="0.9">
+        </div>
+      </div>
+
+      <div class="track-card">
+        <div class="track-title t2-color">
+          <span>Kontra (Zvuk 2)</span>
+          <button class="mute-btn" id="mute2">MUTE</button>
+        </div>
+        <select id="sound2">
+          <option value="cowbell" selected>Cowbell (Zvon)</option>
+          <option value="clave">Kovové Clave</option>
+          <option value="woodblock">Dřevěný Block</option>
+          <option value="shaker">Maracas / Shaker</option>
+        </select>
+        <div class="track-ctrls">
+          <span style="color:var(--text-muted);">Hlasitost</span>
+          <input type="range" id="vol2" min="0" max="1" step="0.05" value="0.95">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <button class="play-btn" id="startBtn">
+      <svg id="playIcon" width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M8 5v14l11-7z"/>
+      </svg>
+      <span id="playBtnLabel">SPUSTIT METRONOM</span>
+    </button>
+    <div class="cycle-info" id="cycleStatus">
+      Cyklus: 2 takty (8 dob) • Tečkované osminy
+    </div>
+  </div>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW registration failed:', err));
+      });
+    }
+
+    let deferredPrompt;
+    const installBtn = document.getElementById('installBtn');
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      installBtn.style.display = 'inline-block';
+    });
+    installBtn.addEventListener('click', async () => {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === 'accepted') installBtn.style.display = 'none';
+        deferredPrompt = null;
+      }
+    });
+
+    let audioCtx = null;
+    let isRunning = false;
+    let bpm = 120;
+    let bars = 2;
+    let beatsPerBar = 4;
+    let meterSubdivision = 4;
+    let polyType = 'dotted_eighth';
+
+    let vol1 = 0.9, isMute1 = false;
+    let vol2 = 0.95, isMute2 = false;
+    let sndType1 = 'woodblock';
+    let sndType2 = 'cowbell';
+
+    let tapTimes = [];
+    const LOOKAHEAD_MS = 25.0;
+    const SCHEDULE_AHEAD_TIME = 0.1;
+    let timerID = null;
+    let cycleStartTime = 0;
+    let nextCycleStartTime = 0;
+
+    let track1Ticks = [];
+    let track2Ticks = [];
+    let cycleDurationSeconds = 0;
+
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    function calculateCycleLengthInQuarterBeats() {
+      if (beatsPerBar === 6 && meterSubdivision === 8) {
+        return bars * 3;
+      } else if (beatsPerBar === 7 && meterSubdivision === 8) {
+        return bars * 3.5;
+      }
+      return bars * beatsPerBar;
+    }
+
+    function rebuildPattern() {
+      const totalQuarters = calculateCycleLengthInQuarterBeats();
+      const secondsPerQuarter = 60.0 / bpm;
+      cycleDurationSeconds = totalQuarters * secondsPerQuarter;
+
+      track1Ticks = [];
+      track2Ticks = [];
+
+      if (beatsPerBar === 6 && meterSubdivision === 8) {
+        const totalEighths = bars * 6;
+        const secondsPerEighth = (60.0 / bpm) / 2;
+        for (let i = 0; i < totalEighths; i++) {
+          const isMainBeat = (i % 3 === 0);
+          track1Ticks.push({
+            timeOffset: i * secondsPerEighth,
+            isDownbeat: (i === 0),
+            isAccent: isMainBeat,
+            index: i
+          });
+        }
+      } else if (beatsPerBar === 7 && meterSubdivision === 8) {
+        const totalEighths = bars * 7;
+        const secondsPerEighth = (60.0 / bpm) / 2;
+        for (let i = 0; i < totalEighths; i++) {
+          const barIndex = i % 7;
+          const isAccent = (barIndex === 0 || barIndex === 3 || barIndex === 5);
+          track1Ticks.push({
+            timeOffset: i * secondsPerEighth,
+            isDownbeat: (i === 0),
+            isAccent: isAccent,
+            index: i
+          });
+        }
+      } else {
+        const totalBeats = bars * beatsPerBar;
+        for (let i = 0; i < totalBeats; i++) {
+          track1Ticks.push({
+            timeOffset: i * secondsPerQuarter,
+            isDownbeat: (i % beatsPerBar === 0),
+            isAccent: (i % beatsPerBar === 0),
+            index: i
+          });
+        }
+      }
+
+      if (polyType === 'dotted_eighth') {
+        const step = 0.75 * secondsPerQuarter;
+        for (let t = 0; t < cycleDurationSeconds - 0.005; t += step) {
+          track2Ticks.push({ timeOffset: t });
+        }
+      } else if (polyType === 'dotted_quarter') {
+        const step = 1.5 * secondsPerQuarter;
+        for (let t = 0; t < cycleDurationSeconds - 0.005; t += step) {
+          track2Ticks.push({ timeOffset: t });
+        }
+      } else if (polyType === 'quarter_triplet') {
+        const step = (2.0 / 3.0) * secondsPerQuarter;
+        for (let t = 0; t < cycleDurationSeconds - 0.005; t += step) {
+          track2Ticks.push({ timeOffset: t });
+        }
+      } else if (polyType === 'eighth_triplet') {
+        const step = (1.0 / 3.0) * secondsPerQuarter;
+        for (let t = 0; t < cycleDurationSeconds - 0.005; t += step) {
+          track2Ticks.push({ timeOffset: t });
+        }
+      } else if (polyType === 'quintuplet') {
+        const step = cycleDurationSeconds / 5;
+        for (let i = 0; i < 5; i++) {
+          track2Ticks.push({ timeOffset: i * step });
+        }
+      } else if (polyType === 'septuplet') {
+        const step = cycleDurationSeconds / 7;
+        for (let i = 0; i < 7; i++) {
+          track2Ticks.push({ timeOffset: i * step });
+        }
+      } else if (polyType === 'dotted_half') {
+        const step = 3.0 * secondsPerQuarter;
+        for (let t = 0; t < cycleDurationSeconds - 0.005; t += step) {
+          track2Ticks.push({ timeOffset: t });
+        }
+      }
+
+      renderTimelineDOM();
+      updateInfoText();
+    }
+
+    function renderTimelineDOM() {
+      const lane1 = document.getElementById('lane1');
+      const lane2 = document.getElementById('lane2');
+      lane1.innerHTML = '';
+      lane2.innerHTML = '';
+
+      track1Ticks.forEach((tick, i) => {
+        const div = document.createElement('div');
+        div.className = 'tick-mark tick-p1' + (tick.isDownbeat ? ' downbeat' : '');
+        div.style.left = (tick.timeOffset / cycleDurationSeconds * 100) + '%';
+        div.id = 't1_tick_' + i;
+        lane1.appendChild(div);
+      });
+
+      track2Ticks.forEach((tick, i) => {
+        const div = document.createElement('div');
+        const hasClash = track1Ticks.some(t1 => Math.abs(t1.timeOffset - tick.timeOffset) < 0.015);
+        div.className = 'tick-mark tick-p2' + (hasClash ? ' clash' : '');
+        div.style.left = (tick.timeOffset / cycleDurationSeconds * 100) + '%';
+        div.id = 't2_tick_' + i;
+        lane2.appendChild(div);
+      });
+    }
+
+    function updateInfoText() {
+      const pText = document.getElementById('polyPreset').options[document.getElementById('polyPreset').selectedIndex].text;
+      document.getElementById('cycleStatus').textContent =
+        `Cyklus: ${bars} takty (${bars * beatsPerBar} dob) • ${pText} (${track2Ticks.length} úderů)`;
+    }
+
+    function playSound(type, isAccent, time, volume) {
+      if (!audioCtx || volume <= 0.001) return;
+
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      gain.connect(audioCtx.destination);
+
+      if (type === 'woodblock') {
+        const freq = isAccent ? 980 : 720;
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, time);
+        osc.frequency.exponentialRampToValueAtTime(freq * 0.4, time + 0.04);
+
+        gain.gain.setValueAtTime(volume * 1.2, time);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + 0.05);
+
+        osc.connect(gain);
+        osc.start(time);
+        osc.stop(time + 0.05);
+      }
+      else if (type === 'cowbell') {
+        const baseFreq = isAccent ? 820 : 640;
+        const osc2 = audioCtx.createOscillator();
+        osc.type = 'square';
+        osc2.type = 'square';
+        osc.frequency.setValueAtTime(baseFreq, time);
+        osc2.frequency.setValueAtTime(baseFreq * 1.48, time);
+
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(baseFreq * 1.2, time);
+        filter.Q.setValueAtTime(3.5, time);
+
+        osc.connect(filter);
+        osc2.connect(filter);
+        filter.connect(gain);
+
+        gain.gain.setValueAtTime(volume * 0.8, time);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + 0.09);
+
+        osc.start(time);
+        osc2.start(time);
+        osc.stop(time + 0.09);
+        osc2.stop(time + 0.09);
+      }
+      else if (type === 'clave') {
+        const freq = isAccent ? 2400 : 2100;
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, time);
+
+        gain.gain.setValueAtTime(volume, time);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + 0.035);
+
+        osc.connect(gain);
+        osc.start(time);
+        osc.stop(time + 0.035);
+      }
+      else if (type === 'rimshot') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(isAccent ? 380 : 260, time);
+        osc.frequency.exponentialRampToValueAtTime(60, time + 0.03);
+
+        gain.gain.setValueAtTime(volume * 1.1, time);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + 0.035);
+        osc.connect(gain);
+        osc.start(time);
+        osc.stop(time + 0.035);
+      }
+      else if (type === 'beep') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(isAccent ? 1320 : 880, time);
+        gain.gain.setValueAtTime(volume * 0.7, time);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + 0.06);
+        osc.connect(gain);
+        osc.start(time);
+        osc.stop(time + 0.06);
+      }
+      else if (type === 'shaker') {
+        const bufferSize = audioCtx.sampleRate * 0.04;
+        const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = Math.random() * 2 - 1;
+        }
+        const noise = audioCtx.createBufferSource();
+        noise.buffer = buffer;
+
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'highpass';
+        filter.frequency.setValueAtTime(3200, time);
+
+        noise.connect(filter);
+        filter.connect(gain);
+
+        gain.gain.setValueAtTime(volume * 0.9, time);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + 0.04);
+
+        noise.start(time);
+        noise.stop(time + 0.04);
+      }
+    }
+
+    function scheduler() {
+      const now = audioCtx.currentTime;
+      while (nextCycleStartTime < now + SCHEDULE_AHEAD_TIME) {
+        scheduleCycle(nextCycleStartTime);
+        nextCycleStartTime += cycleDurationSeconds;
+      }
+      timerID = setTimeout(scheduler, LOOKAHEAD_MS);
+    }
+
+    function scheduleCycle(startTime) {
+      if (!isMute1) {
+        track1Ticks.forEach(tick => {
+          const t = startTime + tick.timeOffset;
+          if (t >= audioCtx.currentTime - 0.01) {
+            playSound(sndType1, tick.isDownbeat, t, vol1);
+          }
+        });
+      }
+
+      if (!isMute2) {
+        track2Ticks.forEach(tick => {
+          const t = startTime + tick.timeOffset;
+          if (t >= audioCtx.currentTime - 0.01) {
+            playSound(sndType2, false, t, vol2);
+          }
+        });
+      }
+    }
+
+    let animFrame = null;
+    function updatePlayhead() {
+      if (!isRunning || !audioCtx) return;
+
+      const now = audioCtx.currentTime;
+      const elapsed = (now - cycleStartTime) % cycleDurationSeconds;
+      const progress = (elapsed / cycleDurationSeconds) * 100;
+
+      document.getElementById('playhead').style.left = progress + '%';
+
+      const flashWindow = 0.07;
+      track1Ticks.forEach((t, i) => {
+        const el = document.getElementById('t1_tick_' + i);
+        if (el) {
+          const diff = elapsed - t.timeOffset;
+          if (diff >= 0 && diff < flashWindow) {
+            el.classList.add('active');
+          } else {
+            el.classList.remove('active');
+          }
+        }
+      });
+
+      track2Ticks.forEach((t, i) => {
+        const el = document.getElementById('t2_tick_' + i);
+        if (el) {
+          const diff = elapsed - t.timeOffset;
+          if (diff >= 0 && diff < flashWindow) {
+            el.classList.add('active');
+          } else {
+            el.classList.remove('active');
+          }
+        }
+      });
+
+      animFrame = requestAnimationFrame(updatePlayhead);
+    }
+
+    function startMetronome() {
+      initAudio();
+      rebuildPattern();
+      isRunning = true;
+      cycleStartTime = audioCtx.currentTime + 0.05;
+      nextCycleStartTime = cycleStartTime;
+
+      scheduler();
+      animFrame = requestAnimationFrame(updatePlayhead);
+
+      document.getElementById('startBtn').classList.add('running');
+      document.getElementById('playBtnLabel').textContent = 'ZASTAVIT METRONOM';
+      document.getElementById('playIcon').innerHTML = '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>';
+    }
+
+    function stopMetronome() {
+      isRunning = false;
+      clearTimeout(timerID);
+      cancelAnimationFrame(animFrame);
+      document.getElementById('playhead').style.left = '0%';
+      document.querySelectorAll('.tick-mark').forEach(el => el.classList.remove('active'));
+
+      document.getElementById('startBtn').classList.remove('running');
+      document.getElementById('playBtnLabel').textContent = 'SPUSTIT METRONOM';
+      document.getElementById('playIcon').innerHTML = '<path d="M8 5v14l11-7z"/>';
+    }
+
+    function toggleMetronome() {
+      if (isRunning) stopMetronome();
+      else startMetronome();
+    }
+
+    document.getElementById('startBtn').addEventListener('click', toggleMetronome);
+
+    function updateTempo(newBpm) {
+      bpm = Math.min(260, Math.max(40, Math.round(newBpm)));
+      document.getElementById('bpmText').textContent = bpm;
+      document.getElementById('bpmSlider').value = bpm;
+      if (isRunning) {
+        const now = audioCtx.currentTime;
+        const currentProgress = (now - cycleStartTime) / cycleDurationSeconds;
+        rebuildPattern();
+        cycleStartTime = now - (currentProgress * cycleDurationSeconds);
+        nextCycleStartTime = now + (cycleDurationSeconds - (now - cycleStartTime) % cycleDurationSeconds);
+      } else {
+        rebuildPattern();
+      }
+    }
+
+    document.getElementById('bpmSlider').addEventListener('input', (e) => updateTempo(e.target.value));
+    document.getElementById('bpmDown1').addEventListener('click', () => updateTempo(bpm - 1));
+    document.getElementById('bpmUp1').addEventListener('click', () => updateTempo(bpm + 1));
+    document.getElementById('bpmDown5').addEventListener('click', () => updateTempo(bpm - 5));
+    document.getElementById('bpmUp5').addEventListener('click', () => updateTempo(bpm + 5));
+
+    document.getElementById('tapBtn').addEventListener('click', () => {
+      const now = performance.now();
+      tapTimes.push(now);
+      if (tapTimes.length > 4) tapTimes.shift();
+
+      if (tapTimes.length >= 2) {
+        const intervals = [];
+        for (let i = 1; i < tapTimes.length; i++) {
+          intervals.push(tapTimes[i] - tapTimes[i - 1]);
+        }
+        const avg = intervals.reduce((a, b) => a + b) / intervals.length;
+        const calculatedBpm = Math.round(60000 / avg);
+        if (calculatedBpm >= 40 && calculatedBpm <= 260) {
+          updateTempo(calculatedBpm);
+        }
+      }
+    });
+
+    document.getElementById('barCountSelect').addEventListener('change', (e) => {
+      bars = parseInt(e.target.value);
+      rebuildPattern();
+    });
+
+    document.getElementById('meterSelect').addEventListener('change', (e) => {
+      const val = parseInt(e.target.value);
+      if (val === 6 || val === 7) {
+        beatsPerBar = val;
+        meterSubdivision = 8;
+      } else {
+        beatsPerBar = val;
+        meterSubdivision = 4;
+      }
+      rebuildPattern();
+    });
+
+    document.getElementById('polyPreset').addEventListener('change', (e) => {
+      polyType = e.target.value;
+      rebuildPattern();
+    });
+
+    document.getElementById('sound1').addEventListener('change', (e) => sndType1 = e.target.value);
+    document.getElementById('sound2').addEventListener('change', (e) => sndType2 = e.target.value);
+
+    document.getElementById('vol1').addEventListener('input', (e) => vol1 = parseFloat(e.target.value));
+    document.getElementById('vol2').addEventListener('input', (e) => vol2 = parseFloat(e.target.value));
+
+    const m1Btn = document.getElementById('mute1');
+    m1Btn.addEventListener('click', () => {
+      isMute1 = !isMute1;
+      m1Btn.classList.toggle('active', isMute1);
+    });
+
+    const m2Btn = document.getElementById('mute2');
+    m2Btn.addEventListener('click', () => {
+      isMute2 = !isMute2;
+      m2Btn.classList.toggle('active', isMute2);
+    });
+
+    rebuildPattern();
+  </script>
+</body>
+</html>
