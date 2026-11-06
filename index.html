@@ -163,10 +163,17 @@
       color: var(--text-muted);
       font-size: 0.65rem;
       font-weight: 700;
-      margin-bottom: 5px;
+      margin: 0 0 5px;
+    }
+    .step-beat + .step-beat { margin-top: 6px; }
+    .step-beat-label {
+      color: var(--text-muted);
+      font-size: 0.62rem;
+      margin-bottom: 3px;
     }
     .step-cells {
       display: grid;
+      position: relative;
       grid-template-columns: repeat(4, minmax(48px, 1fr));
       gap: 6px;
     }
@@ -193,6 +200,23 @@
     .step-cell.playing {
       outline: 2px solid #fff;
       outline-offset: 1px;
+    }
+    .step-pattern-mark {
+      position: absolute;
+      top: 50%;
+      width: 10px;
+      height: 10px;
+      border: 2px solid #07130f;
+      border-radius: 50%;
+      background: #34d399;
+      box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.35);
+      pointer-events: none;
+      transform: translate(-50%, -50%);
+      z-index: 1;
+    }
+    .step-pattern-mark.playing {
+      background: #fff;
+      box-shadow: 0 0 0 4px rgba(255,255,255,0.28);
     }
     .step-cell:focus-visible {
       outline: 2px solid var(--accent-cyan);
@@ -462,12 +486,12 @@
         <div class="lane" id="lane2"></div>
       </div>
     </div>
-    <section class="step-sequencer" id="stepSequencer" aria-label="Vlastní rytmus" hidden>
+    <section class="step-sequencer" id="stepSequencer" aria-label="Rytmická mřížka">
       <div class="step-sequencer-heading">
-        <span>Vlastní rytmus — šestnáctiny</span>
+        <span id="stepSequencerTitle">Mřížka rytmu</span>
         <button class="step-clear-btn" id="clearRhythmBtn" type="button">Smazat</button>
       </div>
-      <p class="step-sequencer-help">Klepnutím zapnete nebo vypnete úder ve stopě Kontra.</p>
+      <p class="step-sequencer-help" id="stepSequencerHelp">Zelené značky ukazují údery. Klepnutím na čtvereček přejdete na vlastní rytmus.</p>
       <div id="stepGrid"></div>
     </section>
 
@@ -496,6 +520,7 @@
       <div class="config-pill">
         <span class="config-label">Polyrytmika</span>
         <select id="polyPreset">
+          <option value="regular">Pravidelný rytmus (každá doba)</option>
           <option value="dotted_eighth" selected>Tečkovaná osmina (3/16)</option>
           <option value="dotted_quarter">Tečkovaná čtvrťová (3/8)</option>
           <option value="quarter_triplet">Čtvrťová triola (3:2)</option>
@@ -518,6 +543,7 @@
         <select id="sound1">
           <option value="woodblock" selected>Dřevěný Woodblock</option>
           <option value="soft_claves">Dřívka (jemný klik)</option>
+          <option value="deep_claves">Dřívka (hlubší tón)</option>
           <option value="rimshot">Rimshot / Klik</option>
           <option value="cowbell">Cowbell (Agogô)</option>
           <option value="beep">Pípnutí / Beep</option>
@@ -536,6 +562,7 @@
         <select id="sound2">
           <option value="cowbell" selected>Cowbell (Zvon)</option>
           <option value="soft_claves">Dřívka (jemný klik)</option>
+          <option value="deep_claves">Dřívka (hlubší tón)</option>
           <option value="clave">Kovové Clave</option>
           <option value="woodblock">Dřevěný Block</option>
           <option value="shaker">Maracas / Shaker</option>
@@ -698,7 +725,9 @@
         }
       }
 
-      if (polyType === 'custom') {
+      if (polyType === 'regular') {
+        track2Ticks = track1Ticks.map(tick => ({ timeOffset: tick.timeOffset }));
+      } else if (polyType === 'custom') {
         const totalSteps = Math.round(totalQuarters * 4);
         for (let i = 0; i < totalSteps; i++) {
           if (customSteps[i]) {
@@ -751,13 +780,17 @@
       const stepSequencer = document.getElementById('stepSequencer');
       const stepGrid = document.getElementById('stepGrid');
       const isCustom = polyType === 'custom';
-      stepSequencer.hidden = !isCustom;
-      document.getElementById('timeline').hidden = isCustom;
+      document.getElementById('stepSequencerTitle').textContent = isCustom
+        ? 'Vlastní rytmus — šestnáctiny'
+        : `Mřížka rytmu — ${document.getElementById('polyPreset').selectedOptions[0].textContent}`;
+      document.getElementById('stepSequencerHelp').textContent = isCustom
+        ? 'Klepnutím zapnete nebo vypnete úder ve stopě Kontra.'
+        : 'Zelené značky ukazují údery. Klepnutím na čtvereček přejdete na vlastní rytmus.';
+      document.getElementById('clearRhythmBtn').hidden = !isCustom;
       stepGrid.replaceChildren();
 
-      if (!isCustom) return;
-
-      const stepsPerBar = Math.round((calculateCycleLengthInQuarterBeats() / bars) * 4);
+      const cellsPerBeat = meterSubdivision === 8 ? 2 : 4;
+      const unitsPerQuarter = 4 / cellsPerBeat;
       for (let bar = 0; bar < bars; bar++) {
         const barElement = document.createElement('div');
         barElement.className = 'step-bar';
@@ -767,24 +800,55 @@
         label.textContent = `Takt ${bar + 1}`;
         barElement.appendChild(label);
 
-        const cells = document.createElement('div');
-        cells.className = 'step-cells';
-        for (let step = 0; step < stepsPerBar; step++) {
-          const index = bar * stepsPerBar + step;
-          const cell = document.createElement('button');
-          const isActive = Boolean(customSteps[index]);
-          cell.type = 'button';
-          cell.className = 'step-cell' + (isActive ? ' active' : '');
-          cell.textContent = String(step + 1);
-          cell.dataset.step = String(index);
-          cell.setAttribute('aria-pressed', String(isActive));
-          cell.setAttribute(
-            'aria-label',
-            `Takt ${bar + 1}, šestnáctina ${step + 1}: ${isActive ? 'úder zapnutý' : 'úder vypnutý'}`
-          );
-          cells.appendChild(cell);
+        for (let beat = 0; beat < beatsPerBar; beat++) {
+          const beatElement = document.createElement('div');
+          beatElement.className = 'step-beat';
+          const beatLabel = document.createElement('div');
+          beatLabel.className = 'step-beat-label';
+          beatLabel.textContent = `${meterSubdivision === 8 ? 'Osmina' : 'Doba'} ${beat + 1}`;
+          beatElement.appendChild(beatLabel);
+
+          const cells = document.createElement('div');
+          cells.className = 'step-cells';
+          cells.style.gridTemplateColumns = `repeat(${cellsPerBeat}, minmax(48px, 1fr))`;
+          const firstStep = (bar * beatsPerBar + beat) * cellsPerBeat;
+          for (let step = 0; step < cellsPerBeat; step++) {
+            const index = firstStep + step;
+            const cell = document.createElement('button');
+            const isActive = isCustom && Boolean(customSteps[index]);
+            cell.type = 'button';
+            cell.className = 'step-cell' + (isActive ? ' active' : '');
+            cell.textContent = String(step + 1);
+            cell.dataset.step = String(index);
+            cell.setAttribute('aria-pressed', String(isActive));
+            cell.setAttribute(
+              'aria-label',
+              `Takt ${bar + 1}, ${beatLabel.textContent}, šestnáctina ${step + 1}: ${isActive ? 'úder zapnutý' : 'úder vypnutý'}`
+            );
+            cells.appendChild(cell);
+          }
+
+          if (!isCustom) {
+            track2Ticks.forEach((tick, tickIndex) => {
+              const positionInQuarterBeats = tick.timeOffset / (60 / bpm);
+              const positionInBeatUnits = positionInQuarterBeats * unitsPerQuarter;
+              const unitIndex = Math.floor(positionInBeatUnits + 0.000001);
+              const tickBar = Math.floor(unitIndex / beatsPerBar);
+              const tickBeat = unitIndex % beatsPerBar;
+              if (tickBar !== bar || tickBeat !== beat) return;
+
+              const marker = document.createElement('span');
+              marker.className = 'step-pattern-mark';
+              marker.dataset.tickIndex = String(tickIndex);
+              marker.style.left = `${(positionInBeatUnits - unitIndex) * 100}%`;
+              marker.setAttribute('aria-hidden', 'true');
+              cells.appendChild(marker);
+            });
+          }
+
+          beatElement.appendChild(cells);
+          barElement.appendChild(beatElement);
         }
-        barElement.appendChild(cells);
         stepGrid.appendChild(barElement);
       }
     }
@@ -914,6 +978,45 @@
         trackScheduledSource(click);
         click.stop(time + duration);
       }
+      else if (type === 'deep_claves') {
+        const duration = 0.05;
+        const bufferSize = Math.ceil(audioCtx.sampleRate * duration);
+        const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = Math.random() * 2 - 1;
+        }
+
+        const click = audioCtx.createBufferSource();
+        click.buffer = buffer;
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(520, time);
+        filter.Q.setValueAtTime(0.9, time);
+        const clickGain = audioCtx.createGain();
+        clickGain.gain.setValueAtTime(volume * 0.22, time);
+        clickGain.gain.exponentialRampToValueAtTime(0.001, time + duration);
+        click.connect(filter);
+        filter.connect(clickGain);
+        clickGain.connect(audioCtx.destination);
+
+        const body = audioCtx.createOscillator();
+        const bodyGain = audioCtx.createGain();
+        body.type = 'triangle';
+        body.frequency.setValueAtTime(isAccent ? 280 : 220, time);
+        body.frequency.exponentialRampToValueAtTime(110, time + duration);
+        bodyGain.gain.setValueAtTime(volume * 0.16, time);
+        bodyGain.gain.exponentialRampToValueAtTime(0.001, time + duration);
+        body.connect(bodyGain);
+        bodyGain.connect(audioCtx.destination);
+
+        click.start(time);
+        body.start(time);
+        trackScheduledSource(click);
+        trackScheduledSource(body);
+        click.stop(time + duration);
+        body.stop(time + duration);
+      }
       else if (type === 'rimshot') {
         osc.type = 'sine';
         osc.frequency.setValueAtTime(isAccent ? 380 : 260, time);
@@ -999,6 +1102,13 @@
       const now = audioCtx.currentTime;
       const elapsed = (now - cycleStartTime) % cycleDurationSeconds;
       const progress = (elapsed / cycleDurationSeconds) * 100;
+      track2Ticks.forEach((tick, i) => {
+        const marker = document.querySelector(`.step-pattern-mark[data-tick-index="${i}"]`);
+        if (marker) {
+          const diff = elapsed - tick.timeOffset;
+          marker.classList.toggle('playing', diff >= 0 && diff < 0.07);
+        }
+      });
       if (polyType === 'custom') {
         const totalSteps = Math.round(calculateCycleLengthInQuarterBeats() * 4);
         const currentStep = Math.min(totalSteps - 1, Math.floor((elapsed / cycleDurationSeconds) * totalSteps));
