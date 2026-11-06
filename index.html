@@ -499,8 +499,13 @@
 
   <script>
     if ('serviceWorker' in navigator) {
+      if (navigator.serviceWorker.controller) {
+        navigator.serviceWorker.addEventListener('controllerchange', () => window.location.reload(), { once: true });
+      }
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW registration failed:', err));
+        navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })
+          .then(registration => registration.update().catch(err => console.log('SW update check failed:', err)))
+          .catch(err => console.log('SW registration failed:', err));
       });
     }
 
@@ -537,6 +542,7 @@
     const LOOKAHEAD_MS = 25.0;
     const SCHEDULE_AHEAD_TIME = 0.1;
     let timerID = null;
+    const scheduledSources = new Set();
     let cycleStartTime = 0;
     let nextCycleStartTime = 0;
 
@@ -678,6 +684,11 @@
         `Cyklus: ${bars} takty (${bars * beatsPerBar} dob) • ${pText} (${track2Ticks.length} úderů)`;
     }
 
+    function trackScheduledSource(source) {
+      scheduledSources.add(source);
+      source.addEventListener('ended', () => scheduledSources.delete(source), { once: true });
+    }
+
     function playSound(type, isAccent, time, volume) {
       if (!audioCtx || volume <= 0.001) return;
 
@@ -696,6 +707,7 @@
 
         osc.connect(gain);
         osc.start(time);
+        trackScheduledSource(osc);
         osc.stop(time + 0.05);
       }
       else if (type === 'cowbell') {
@@ -720,6 +732,8 @@
 
         osc.start(time);
         osc2.start(time);
+        trackScheduledSource(osc);
+        trackScheduledSource(osc2);
         osc.stop(time + 0.09);
         osc2.stop(time + 0.09);
       }
@@ -733,6 +747,7 @@
 
         osc.connect(gain);
         osc.start(time);
+        trackScheduledSource(osc);
         osc.stop(time + 0.035);
       }
       else if (type === 'rimshot') {
@@ -744,6 +759,7 @@
         gain.gain.exponentialRampToValueAtTime(0.001, time + 0.035);
         osc.connect(gain);
         osc.start(time);
+        trackScheduledSource(osc);
         osc.stop(time + 0.035);
       }
       else if (type === 'beep') {
@@ -753,6 +769,7 @@
         gain.gain.exponentialRampToValueAtTime(0.001, time + 0.06);
         osc.connect(gain);
         osc.start(time);
+        trackScheduledSource(osc);
         osc.stop(time + 0.06);
       }
       else if (type === 'shaker') {
@@ -776,11 +793,13 @@
         gain.gain.exponentialRampToValueAtTime(0.001, time + 0.04);
 
         noise.start(time);
+        trackScheduledSource(noise);
         noise.stop(time + 0.04);
       }
     }
 
     function scheduler() {
+      if (!isRunning) return;
       const now = audioCtx.currentTime;
       while (nextCycleStartTime < now + SCHEDULE_AHEAD_TIME) {
         scheduleCycle(nextCycleStartTime);
@@ -851,6 +870,7 @@
     }
 
     function startMetronome() {
+      if (isRunning) return;
       initAudio();
       rebuildPattern();
       isRunning = true;
@@ -868,7 +888,10 @@
     function stopMetronome() {
       isRunning = false;
       clearTimeout(timerID);
+      timerID = null;
       cancelAnimationFrame(animFrame);
+      scheduledSources.forEach(source => source.stop());
+      scheduledSources.clear();
       document.getElementById('playhead').style.left = 'var(--timeline-inset)';
       document.querySelectorAll('.tick-mark').forEach(el => el.classList.remove('active'));
 
