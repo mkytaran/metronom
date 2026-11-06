@@ -897,6 +897,13 @@
       source.addEventListener('ended', () => scheduledSources.delete(source), { once: true });
     }
 
+    function setPercussiveEnvelope(gainNode, time, peak, duration) {
+      const tail = Math.min(0.001, peak * 0.01);
+      gainNode.gain.setValueAtTime(0, time);
+      gainNode.gain.linearRampToValueAtTime(peak, time + 0.001);
+      gainNode.gain.exponentialRampToValueAtTime(tail, time + duration);
+    }
+
     function playSound(type, isAccent, time, volume) {
       if (!audioCtx || volume <= 0.001) return;
 
@@ -905,20 +912,21 @@
       gain.connect(audioCtx.destination);
 
       if (type === 'woodblock') {
+        const duration = 0.03;
         const freq = isAccent ? 980 : 720;
         osc.type = 'triangle';
         osc.frequency.setValueAtTime(freq, time);
-        osc.frequency.exponentialRampToValueAtTime(freq * 0.4, time + 0.04);
+        osc.frequency.exponentialRampToValueAtTime(freq * 0.85, time + 0.006);
 
-        gain.gain.setValueAtTime(volume * 1.2, time);
-        gain.gain.exponentialRampToValueAtTime(0.001, time + 0.05);
+        setPercussiveEnvelope(gain, time, volume * 1.2, duration);
 
         osc.connect(gain);
         osc.start(time);
         trackScheduledSource(osc);
-        osc.stop(time + 0.05);
+        osc.stop(time + duration);
       }
       else if (type === 'cowbell') {
+        const duration = 0.05;
         const baseFreq = isAccent ? 820 : 640;
         const osc2 = audioCtx.createOscillator();
         osc.type = 'square';
@@ -929,37 +937,36 @@
         const filter = audioCtx.createBiquadFilter();
         filter.type = 'bandpass';
         filter.frequency.setValueAtTime(baseFreq * 1.2, time);
-        filter.Q.setValueAtTime(3.5, time);
+        filter.Q.setValueAtTime(1.4, time);
 
         osc.connect(filter);
         osc2.connect(filter);
         filter.connect(gain);
 
-        gain.gain.setValueAtTime(volume * 0.8, time);
-        gain.gain.exponentialRampToValueAtTime(0.001, time + 0.09);
+        setPercussiveEnvelope(gain, time, volume * 0.8, duration);
 
         osc.start(time);
         osc2.start(time);
         trackScheduledSource(osc);
         trackScheduledSource(osc2);
-        osc.stop(time + 0.09);
-        osc2.stop(time + 0.09);
+        osc.stop(time + duration);
+        osc2.stop(time + duration);
       }
       else if (type === 'clave') {
+        const duration = 0.025;
         const freq = isAccent ? 2400 : 2100;
         osc.type = 'sine';
         osc.frequency.setValueAtTime(freq, time);
 
-        gain.gain.setValueAtTime(volume, time);
-        gain.gain.exponentialRampToValueAtTime(0.001, time + 0.035);
+        setPercussiveEnvelope(gain, time, volume, duration);
 
         osc.connect(gain);
         osc.start(time);
         trackScheduledSource(osc);
-        osc.stop(time + 0.035);
+        osc.stop(time + duration);
       }
       else if (type === 'soft_claves') {
-        const duration = 0.025;
+        const duration = 0.02;
         const bufferSize = Math.ceil(audioCtx.sampleRate * duration);
         const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
         const data = buffer.getChannelData(0);
@@ -976,14 +983,13 @@
         click.connect(filter);
         filter.connect(gain);
 
-        gain.gain.setValueAtTime(volume * (isAccent ? 0.85 : 0.65), time);
-        gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
+        setPercussiveEnvelope(gain, time, volume * (isAccent ? 0.85 : 0.65), duration);
         click.start(time);
         trackScheduledSource(click);
         click.stop(time + duration);
       }
       else if (type === 'deep_claves') {
-        const duration = 0.05;
+        const duration = 0.035;
         const bufferSize = Math.ceil(audioCtx.sampleRate * duration);
         const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
         const data = buffer.getChannelData(0);
@@ -995,11 +1001,10 @@
         click.buffer = buffer;
         const filter = audioCtx.createBiquadFilter();
         filter.type = 'bandpass';
-        filter.frequency.setValueAtTime(520, time);
-        filter.Q.setValueAtTime(0.9, time);
+        filter.frequency.setValueAtTime(800, time);
+        filter.Q.setValueAtTime(1.1, time);
         const clickGain = audioCtx.createGain();
-        clickGain.gain.setValueAtTime(volume * 0.55, time);
-        clickGain.gain.exponentialRampToValueAtTime(0.001, time + duration);
+        setPercussiveEnvelope(clickGain, time, volume * 0.4, duration);
         click.connect(filter);
         filter.connect(clickGain);
         clickGain.connect(audioCtx.destination);
@@ -1008,9 +1013,7 @@
         const bodyGain = audioCtx.createGain();
         body.type = 'triangle';
         body.frequency.setValueAtTime(isAccent ? 280 : 220, time);
-        body.frequency.exponentialRampToValueAtTime(110, time + duration);
-        bodyGain.gain.setValueAtTime(volume * 0.4, time);
-        bodyGain.gain.exponentialRampToValueAtTime(0.001, time + duration);
+        setPercussiveEnvelope(bodyGain, time, volume * 0.3, duration);
         body.connect(bodyGain);
         bodyGain.connect(audioCtx.destination);
 
@@ -1022,7 +1025,7 @@
         body.stop(time + duration);
       }
       else if (type === 'mechanical_metronome') {
-        const duration = 0.022;
+        const duration = 0.024;
         const click = audioCtx.createOscillator();
         const clickGain = audioCtx.createGain();
         const filter = audioCtx.createBiquadFilter();
@@ -1031,56 +1034,40 @@
         filter.Q.setValueAtTime(0.7, time);
         click.type = 'triangle';
         click.frequency.setValueAtTime(isAccent ? 1450 : 1150, time);
-        click.frequency.exponentialRampToValueAtTime(850, time + 0.006);
-        clickGain.gain.setValueAtTime(volume * 0.75, time);
-        clickGain.gain.exponentialRampToValueAtTime(0.001, time + duration);
+        setPercussiveEnvelope(clickGain, time, volume * 0.75, duration);
         click.connect(filter);
         filter.connect(clickGain);
         clickGain.connect(audioCtx.destination);
 
-        const clack = audioCtx.createOscillator();
-        const clackGain = audioCtx.createGain();
-        const clackDuration = 0.018;
-        clack.type = 'square';
-        clack.frequency.setValueAtTime(isAccent ? 680 : 520, time + 0.009);
-        clack.frequency.exponentialRampToValueAtTime(320, time + 0.015);
-        clackGain.gain.setValueAtTime(0.001, time);
-        clackGain.gain.setValueAtTime(volume * 0.22, time + 0.009);
-        clackGain.gain.exponentialRampToValueAtTime(0.001, time + 0.009 + clackDuration);
-        clack.connect(clackGain);
-        clackGain.connect(audioCtx.destination);
-
         click.start(time);
-        clack.start(time + 0.009);
         trackScheduledSource(click);
-        trackScheduledSource(clack);
         click.stop(time + duration);
-        clack.stop(time + 0.009 + clackDuration);
       }
       else if (type === 'rimshot') {
+        const duration = 0.025;
         osc.type = 'sine';
         osc.frequency.setValueAtTime(isAccent ? 380 : 260, time);
-        osc.frequency.exponentialRampToValueAtTime(60, time + 0.03);
+        osc.frequency.exponentialRampToValueAtTime(isAccent ? 320 : 220, time + 0.006);
 
-        gain.gain.setValueAtTime(volume * 1.1, time);
-        gain.gain.exponentialRampToValueAtTime(0.001, time + 0.035);
+        setPercussiveEnvelope(gain, time, volume * 1.1, duration);
         osc.connect(gain);
         osc.start(time);
         trackScheduledSource(osc);
-        osc.stop(time + 0.035);
+        osc.stop(time + duration);
       }
       else if (type === 'beep') {
+        const duration = 0.04;
         osc.type = 'sine';
         osc.frequency.setValueAtTime(isAccent ? 1320 : 880, time);
-        gain.gain.setValueAtTime(volume * 0.7, time);
-        gain.gain.exponentialRampToValueAtTime(0.001, time + 0.06);
+        setPercussiveEnvelope(gain, time, volume * 0.7, duration);
         osc.connect(gain);
         osc.start(time);
         trackScheduledSource(osc);
-        osc.stop(time + 0.06);
+        osc.stop(time + duration);
       }
       else if (type === 'shaker') {
-        const bufferSize = audioCtx.sampleRate * 0.04;
+        const duration = 0.025;
+        const bufferSize = Math.ceil(audioCtx.sampleRate * duration);
         const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
         const data = buffer.getChannelData(0);
         for (let i = 0; i < bufferSize; i++) {
@@ -1096,12 +1083,11 @@
         noise.connect(filter);
         filter.connect(gain);
 
-        gain.gain.setValueAtTime(volume * 0.9, time);
-        gain.gain.exponentialRampToValueAtTime(0.001, time + 0.04);
+        setPercussiveEnvelope(gain, time, volume * 0.9, duration);
 
         noise.start(time);
         trackScheduledSource(noise);
-        noise.stop(time + 0.04);
+        noise.stop(time + duration);
       }
     }
 
