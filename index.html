@@ -1020,17 +1020,17 @@
         body.stop(time + duration);
       }
       else if (type === 'mechanical_metronome') {
-        const duration = 0.045;
+        const duration = 0.022;
         const click = audioCtx.createOscillator();
         const clickGain = audioCtx.createGain();
         const filter = audioCtx.createBiquadFilter();
         filter.type = 'bandpass';
-        filter.frequency.setValueAtTime(isAccent ? 1850 : 1350, time);
-        filter.Q.setValueAtTime(1.2, time);
+        filter.frequency.setValueAtTime(isAccent ? 1750 : 1400, time);
+        filter.Q.setValueAtTime(0.7, time);
         click.type = 'triangle';
-        click.frequency.setValueAtTime(isAccent ? 1500 : 1100, time);
-        click.frequency.exponentialRampToValueAtTime(420, time + duration);
-        clickGain.gain.setValueAtTime(volume * 0.8, time);
+        click.frequency.setValueAtTime(isAccent ? 1450 : 1150, time);
+        click.frequency.exponentialRampToValueAtTime(850, time + 0.006);
+        clickGain.gain.setValueAtTime(volume * 0.75, time);
         clickGain.gain.exponentialRampToValueAtTime(0.001, time + duration);
         click.connect(filter);
         filter.connect(clickGain);
@@ -1038,21 +1038,22 @@
 
         const clack = audioCtx.createOscillator();
         const clackGain = audioCtx.createGain();
+        const clackDuration = 0.018;
         clack.type = 'square';
-        clack.frequency.setValueAtTime(isAccent ? 720 : 560, time + 0.016);
-        clack.frequency.exponentialRampToValueAtTime(260, time + 0.038);
+        clack.frequency.setValueAtTime(isAccent ? 680 : 520, time + 0.009);
+        clack.frequency.exponentialRampToValueAtTime(320, time + 0.015);
         clackGain.gain.setValueAtTime(0.001, time);
-        clackGain.gain.setValueAtTime(volume * 0.28, time + 0.016);
-        clackGain.gain.exponentialRampToValueAtTime(0.001, time + 0.04);
+        clackGain.gain.setValueAtTime(volume * 0.22, time + 0.009);
+        clackGain.gain.exponentialRampToValueAtTime(0.001, time + 0.009 + clackDuration);
         clack.connect(clackGain);
         clackGain.connect(audioCtx.destination);
 
         click.start(time);
-        clack.start(time + 0.016);
+        clack.start(time + 0.009);
         trackScheduledSource(click);
         trackScheduledSource(clack);
         click.stop(time + duration);
-        clack.stop(time + 0.04);
+        clack.stop(time + 0.009 + clackDuration);
       }
       else if (type === 'rimshot') {
         osc.type = 'sine';
