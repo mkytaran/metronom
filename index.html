@@ -479,29 +479,13 @@
       <span id="installBtn" style="display:none; font-size:0.7rem; background:#38bdf8; color:#082f49; font-weight:700; padding:3px 8px; border-radius:6px; cursor:pointer;">Instalovat</span>
     </header>
 
-    <div class="timeline-container" id="timeline">
-      <div class="timeline-track">
-        <div class="playhead" id="playhead"></div>
-        <div class="lane" id="lane1"></div>
-        <div class="lane" id="lane2"></div>
-      </div>
-    </div>
-    <section class="step-sequencer" id="stepSequencer" aria-label="Rytmická mřížka">
-      <div class="step-sequencer-heading">
-        <span id="stepSequencerTitle">Mřížka rytmu</span>
-        <button class="step-clear-btn" id="clearRhythmBtn" type="button">Smazat</button>
-      </div>
-      <p class="step-sequencer-help" id="stepSequencerHelp">Zelené značky ukazují údery. Klepnutím na čtvereček přejdete na vlastní rytmus.</p>
-      <div id="stepGrid"></div>
-    </section>
-
     <div class="section-heading">Nastavení cyklu</div>
     <div class="cycle-settings">
       <div class="config-pill">
         <span class="config-label">Počet taktů</span>
         <select id="barCountSelect">
-          <option value="1">1 takt</option>
-          <option value="2" selected>2 takty</option>
+          <option value="1" selected>1 takt</option>
+          <option value="2">2 takty</option>
           <option value="3">3 takty</option>
           <option value="4">4 takty</option>
         </select>
@@ -520,8 +504,8 @@
       <div class="config-pill">
         <span class="config-label">Polyrytmika</span>
         <select id="polyPreset">
-          <option value="regular">Pravidelný rytmus (každá doba)</option>
-          <option value="dotted_eighth" selected>Tečkovaná osmina (3/16)</option>
+          <option value="regular" selected>Pravidelný rytmus (každá doba)</option>
+          <option value="dotted_eighth">Tečkovaná osmina (3/16)</option>
           <option value="dotted_quarter">Tečkovaná čtvrťová (3/8)</option>
           <option value="quarter_triplet">Čtvrťová triola (3:2)</option>
           <option value="eighth_triplet">Osminová triola (3:2)</option>
@@ -541,10 +525,10 @@
           <button class="mute-btn" id="mute1">MUTE</button>
         </div>
         <select id="sound1">
-          <option value="woodblock" selected>Dřevěný Woodblock</option>
+          <option value="woodblock">Dřevěný Woodblock</option>
           <option value="soft_claves">Dřívka (jemný klik)</option>
           <option value="deep_claves">Dřívka (hlubší tón)</option>
-          <option value="mechanical_metronome">Mechanický metronom</option>
+          <option value="mechanical_metronome" selected>Mechanický metronom</option>
           <option value="rimshot">Rimshot / Klik</option>
           <option value="cowbell">Cowbell (Agogô)</option>
           <option value="beep">Pípnutí / Beep</option>
@@ -561,10 +545,10 @@
           <button class="mute-btn" id="mute2">MUTE</button>
         </div>
         <select id="sound2">
-          <option value="cowbell" selected>Cowbell (Zvon)</option>
+          <option value="cowbell">Cowbell (Zvon)</option>
           <option value="soft_claves">Dřívka (jemný klik)</option>
           <option value="deep_claves">Dřívka (hlubší tón)</option>
-          <option value="mechanical_metronome">Mechanický metronom</option>
+          <option value="mechanical_metronome" selected>Mechanický metronom</option>
           <option value="clave">Kovové Clave</option>
           <option value="woodblock">Dřevěný Block</option>
           <option value="shaker">Maracas / Shaker</option>
@@ -575,6 +559,23 @@
         </div>
       </div>
     </div>
+
+    <div class="section-heading">Rytmická mřížka</div>
+    <div class="timeline-container" id="timeline">
+      <div class="timeline-track">
+        <div class="playhead" id="playhead"></div>
+        <div class="lane" id="lane1"></div>
+        <div class="lane" id="lane2"></div>
+      </div>
+    </div>
+    <section class="step-sequencer" id="stepSequencer" aria-label="Rytmická mřížka">
+      <div class="step-sequencer-heading">
+        <span id="stepSequencerTitle">Mřížka rytmu</span>
+        <button class="step-clear-btn" id="clearRhythmBtn" type="button">Smazat</button>
+      </div>
+      <p class="step-sequencer-help" id="stepSequencerHelp">Zelené značky ukazují údery. Klepnutím na čtvereček přejdete na vlastní rytmus.</p>
+      <div id="stepGrid"></div>
+    </section>
   </div>
 
   <div class="play-dock">
@@ -586,7 +587,7 @@
           <button class="step-btn" id="bpmDown1">-1</button>
         </div>
         <div class="bpm-display">
-          <div class="bpm-val" id="bpmText">120</div>
+          <div class="bpm-val" id="bpmText">60</div>
           <div class="bpm-sub">BPM (čtvrťové)</div>
         </div>
         <div style="display:flex; gap:4px;">
@@ -596,7 +597,7 @@
         <button class="tap-btn" id="tapBtn">TAP</button>
       </div>
       <div class="slider-row">
-        <input type="range" id="bpmSlider" min="40" max="260" value="120">
+        <input type="range" id="bpmSlider" min="40" max="260" value="60">
       </div>
     </div>
     <button class="play-btn" id="startBtn">
@@ -640,16 +641,16 @@
 
     let audioCtx = null;
     let isRunning = false;
-    let bpm = 120;
-    let bars = 2;
+    let bpm = 60;
+    let bars = 1;
     let beatsPerBar = 4;
     let meterSubdivision = 4;
-    let polyType = 'dotted_eighth';
+    let polyType = 'regular';
 
     let vol1 = 0.9, isMute1 = false;
     let vol2 = 0.95, isMute2 = false;
-    let sndType1 = 'woodblock';
-    let sndType2 = 'cowbell';
+    let sndType1 = 'mechanical_metronome';
+    let sndType2 = 'mechanical_metronome';
 
     let tapTimes = [];
     const LOOKAHEAD_MS = 25.0;
@@ -728,7 +729,7 @@
       }
 
       if (polyType === 'regular') {
-        track2Ticks = track1Ticks.map(tick => ({ timeOffset: tick.timeOffset }));
+        track2Ticks = [];
       } else if (polyType === 'custom') {
         const totalSteps = Math.round(totalQuarters * 4);
         for (let i = 0; i < totalSteps; i++) {
@@ -831,7 +832,8 @@
           }
 
           if (!isCustom) {
-            track2Ticks.forEach((tick, tickIndex) => {
+            const displayedTicks = polyType === 'regular' ? track1Ticks : track2Ticks;
+            displayedTicks.forEach((tick, tickIndex) => {
               const positionInQuarterBeats = tick.timeOffset / (60 / bpm);
               const positionInBeatUnits = positionInQuarterBeats * unitsPerQuarter;
               const unitIndex = Math.floor(positionInBeatUnits + 0.000001);
@@ -881,7 +883,7 @@
 
     function updateInfoText() {
       const pText = document.getElementById('polyPreset').options[document.getElementById('polyPreset').selectedIndex].text;
-      const hits = track2Ticks.length;
+      const hits = polyType === 'regular' ? track1Ticks.length : track2Ticks.length;
       const hitLabel = hits === 1 ? 'úder' : hits >= 2 && hits <= 4 ? 'údery' : 'úderů';
       const beatCount = bars * beatsPerBar;
       const barLabel = bars === 1 ? 'takt' : bars <= 4 ? 'takty' : 'taktů';
@@ -1140,7 +1142,8 @@
       const now = audioCtx.currentTime;
       const elapsed = (now - cycleStartTime) % cycleDurationSeconds;
       const progress = (elapsed / cycleDurationSeconds) * 100;
-      track2Ticks.forEach((tick, i) => {
+      const displayedGridTicks = polyType === 'regular' ? track1Ticks : track2Ticks;
+      displayedGridTicks.forEach((tick, i) => {
         const marker = document.querySelector(`.step-pattern-mark[data-tick-index="${i}"]`);
         if (marker) {
           const diff = elapsed - tick.timeOffset;
