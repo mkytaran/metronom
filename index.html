@@ -135,6 +135,78 @@
     .tick-mark.clash {
       background: #f59e0b !important;
     }
+    .step-sequencer {
+      padding: 10px 12px;
+      margin: 4px 0 8px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+    }
+    .step-sequencer[hidden] { display: none; }
+    .step-sequencer-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+      color: var(--text-main);
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+    .step-sequencer-help {
+      color: var(--text-muted);
+      font-size: 0.68rem;
+      margin-bottom: 10px;
+    }
+    .step-bar + .step-bar { margin-top: 10px; }
+    .step-bar-label {
+      color: var(--text-muted);
+      font-size: 0.65rem;
+      font-weight: 700;
+      margin-bottom: 5px;
+    }
+    .step-cells {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(48px, 1fr));
+      gap: 6px;
+    }
+    .step-cell {
+      min-width: 48px;
+      min-height: 48px;
+      aspect-ratio: 1;
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 9px;
+      background: rgba(255,255,255,0.045);
+      color: var(--text-muted);
+      font: inherit;
+      font-size: 0.75rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .step-cell:active { transform: scale(0.96); }
+    .step-cell.active {
+      background: rgba(16, 185, 129, 0.28);
+      border-color: var(--accent-emerald);
+      color: #d1fae5;
+      box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.25);
+    }
+    .step-cell.playing {
+      outline: 2px solid #fff;
+      outline-offset: 1px;
+    }
+    .step-cell:focus-visible {
+      outline: 2px solid var(--accent-cyan);
+      outline-offset: 2px;
+    }
+    .step-clear-btn {
+      padding: 5px 9px;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 7px;
+      background: rgba(255,255,255,0.05);
+      color: var(--text-main);
+      font-size: 0.68rem;
+      cursor: pointer;
+    }
     .tempo-box {
       display: flex;
       align-items: center;
@@ -390,6 +462,14 @@
         <div class="lane" id="lane2"></div>
       </div>
     </div>
+    <section class="step-sequencer" id="stepSequencer" aria-label="Vlastní rytmus" hidden>
+      <div class="step-sequencer-heading">
+        <span>Vlastní rytmus — šestnáctiny</span>
+        <button class="step-clear-btn" id="clearRhythmBtn" type="button">Smazat</button>
+      </div>
+      <p class="step-sequencer-help">Klepnutím zapnete nebo vypnete úder ve stopě Kontra.</p>
+      <div id="stepGrid"></div>
+    </section>
 
     <div class="section-heading">Nastavení cyklu</div>
     <div class="cycle-settings">
@@ -423,6 +503,7 @@
           <option value="quintuplet">Kvintola přes celý cyklus</option>
           <option value="septuplet">Septola přes celý cyklus</option>
           <option value="dotted_half">Tečkovaná půlová (6 čtvrťových dob)</option>
+          <option value="custom">Vlastní rytmus</option>
         </select>
       </div>
     </div>
@@ -436,6 +517,7 @@
         </div>
         <select id="sound1">
           <option value="woodblock" selected>Dřevěný Woodblock</option>
+          <option value="soft_claves">Dřívka (jemný klik)</option>
           <option value="rimshot">Rimshot / Klik</option>
           <option value="cowbell">Cowbell (Agogô)</option>
           <option value="beep">Pípnutí / Beep</option>
@@ -453,6 +535,7 @@
         </div>
         <select id="sound2">
           <option value="cowbell" selected>Cowbell (Zvon)</option>
+          <option value="soft_claves">Dřívka (jemný klik)</option>
           <option value="clave">Kovové Clave</option>
           <option value="woodblock">Dřevěný Block</option>
           <option value="shaker">Maracas / Shaker</option>
@@ -549,6 +632,7 @@
 
     let track1Ticks = [];
     let track2Ticks = [];
+    let customSteps = [];
     let cycleDurationSeconds = 0;
 
     function initAudio() {
@@ -614,7 +698,14 @@
         }
       }
 
-      if (polyType === 'dotted_eighth') {
+      if (polyType === 'custom') {
+        const totalSteps = Math.round(totalQuarters * 4);
+        for (let i = 0; i < totalSteps; i++) {
+          if (customSteps[i]) {
+            track2Ticks.push({ timeOffset: i * secondsPerQuarter / 4 });
+          }
+        }
+      } else if (polyType === 'dotted_eighth') {
         const step = 0.75 * secondsPerQuarter;
         for (let t = 0; t < cycleDurationSeconds - 0.005; t += step) {
           track2Ticks.push({ timeOffset: t });
@@ -652,7 +743,50 @@
       }
 
       renderTimelineDOM();
+      renderStepGrid();
       updateInfoText();
+    }
+
+    function renderStepGrid() {
+      const stepSequencer = document.getElementById('stepSequencer');
+      const stepGrid = document.getElementById('stepGrid');
+      const isCustom = polyType === 'custom';
+      stepSequencer.hidden = !isCustom;
+      document.getElementById('timeline').hidden = isCustom;
+      stepGrid.replaceChildren();
+
+      if (!isCustom) return;
+
+      const stepsPerBar = Math.round((calculateCycleLengthInQuarterBeats() / bars) * 4);
+      for (let bar = 0; bar < bars; bar++) {
+        const barElement = document.createElement('div');
+        barElement.className = 'step-bar';
+
+        const label = document.createElement('div');
+        label.className = 'step-bar-label';
+        label.textContent = `Takt ${bar + 1}`;
+        barElement.appendChild(label);
+
+        const cells = document.createElement('div');
+        cells.className = 'step-cells';
+        for (let step = 0; step < stepsPerBar; step++) {
+          const index = bar * stepsPerBar + step;
+          const cell = document.createElement('button');
+          const isActive = Boolean(customSteps[index]);
+          cell.type = 'button';
+          cell.className = 'step-cell' + (isActive ? ' active' : '');
+          cell.textContent = String(step + 1);
+          cell.dataset.step = String(index);
+          cell.setAttribute('aria-pressed', String(isActive));
+          cell.setAttribute(
+            'aria-label',
+            `Takt ${bar + 1}, šestnáctina ${step + 1}: ${isActive ? 'úder zapnutý' : 'úder vypnutý'}`
+          );
+          cells.appendChild(cell);
+        }
+        barElement.appendChild(cells);
+        stepGrid.appendChild(barElement);
+      }
     }
 
     function renderTimelineDOM() {
@@ -681,8 +815,13 @@
 
     function updateInfoText() {
       const pText = document.getElementById('polyPreset').options[document.getElementById('polyPreset').selectedIndex].text;
+      const hits = track2Ticks.length;
+      const hitLabel = hits === 1 ? 'úder' : hits >= 2 && hits <= 4 ? 'údery' : 'úderů';
+      const beatCount = bars * beatsPerBar;
+      const barLabel = bars === 1 ? 'takt' : bars <= 4 ? 'takty' : 'taktů';
+      const beatLabel = beatCount === 1 ? 'doba' : beatCount >= 2 && beatCount <= 4 ? 'doby' : 'dob';
       document.getElementById('cycleStatus').textContent =
-        `Cyklus: ${bars} takty (${bars * beatsPerBar} dob) • ${pText} (${track2Ticks.length} úderů)`;
+        `Cyklus: ${bars} ${barLabel} (${beatCount} ${beatLabel}) • ${pText} (${hits} ${hitLabel})`;
     }
 
     function trackScheduledSource(source) {
@@ -750,6 +889,30 @@
         osc.start(time);
         trackScheduledSource(osc);
         osc.stop(time + 0.035);
+      }
+      else if (type === 'soft_claves') {
+        const duration = 0.025;
+        const bufferSize = Math.ceil(audioCtx.sampleRate * duration);
+        const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = Math.random() * 2 - 1;
+        }
+
+        const click = audioCtx.createBufferSource();
+        click.buffer = buffer;
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(1250, time);
+        filter.Q.setValueAtTime(0.7, time);
+        click.connect(filter);
+        filter.connect(gain);
+
+        gain.gain.setValueAtTime(volume * (isAccent ? 0.4 : 0.28), time);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
+        click.start(time);
+        trackScheduledSource(click);
+        click.stop(time + duration);
       }
       else if (type === 'rimshot') {
         osc.type = 'sine';
@@ -836,6 +999,13 @@
       const now = audioCtx.currentTime;
       const elapsed = (now - cycleStartTime) % cycleDurationSeconds;
       const progress = (elapsed / cycleDurationSeconds) * 100;
+      if (polyType === 'custom') {
+        const totalSteps = Math.round(calculateCycleLengthInQuarterBeats() * 4);
+        const currentStep = Math.min(totalSteps - 1, Math.floor((elapsed / cycleDurationSeconds) * totalSteps));
+        document.querySelectorAll('.step-cell').forEach(cell => {
+          cell.classList.toggle('playing', Number(cell.dataset.step) === currentStep);
+        });
+      }
 
       const timelineTrack = document.querySelector('.timeline-track');
       const timelineInset = parseFloat(getComputedStyle(timelineTrack).getPropertyValue('--timeline-inset'));
@@ -966,6 +1136,21 @@
 
     document.getElementById('polyPreset').addEventListener('change', (e) => {
       polyType = e.target.value;
+      rebuildPattern();
+    });
+
+    document.getElementById('stepGrid').addEventListener('click', (e) => {
+      const cell = e.target.closest('button[data-step]');
+      if (!cell) return;
+      const step = Number(cell.dataset.step);
+      customSteps[step] = !customSteps[step];
+      document.getElementById('polyPreset').value = 'custom';
+      polyType = 'custom';
+      rebuildPattern();
+    });
+
+    document.getElementById('clearRhythmBtn').addEventListener('click', () => {
+      customSteps = [];
       rebuildPattern();
     });
 
