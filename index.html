@@ -45,6 +45,14 @@
       display: flex;
       align-items: center;
       gap: 8px;
+      min-width: 0;
+    }
+    .brand-icon {
+      width: 30px;
+      height: 30px;
+      flex: 0 0 auto;
+      border-radius: 8px;
+      object-fit: cover;
     }
     .badge {
       font-size: 0.65rem;
@@ -66,17 +74,33 @@
       backdrop-filter: blur(12px);
     }
     .timeline-container {
-      position: relative;
-      height: 38px;
+      height: 42px;
       background: rgba(15, 23, 42, 0.85);
       border: 1px solid rgba(255,255,255,0.06);
       border-radius: 10px;
       overflow: hidden;
       margin: 4px 0 8px 0;
+      padding: 1px 9px;
+    }
+    .timeline-track {
+      --timeline-inset: 5px;
+      position: relative;
+      height: 38px;
+    }
+    .timeline-track::before {
+      content: "";
+      position: absolute;
+      z-index: 1;
+      top: 0;
+      bottom: 0;
+      left: var(--timeline-inset);
+      width: 1px;
+      background: rgba(56, 189, 248, 0.65);
     }
     .playhead {
       position: absolute;
       top: 0; bottom: 0; width: 2px;
+      left: var(--timeline-inset);
       background: #ffffff;
       box-shadow: 0 0 10px #ffffff;
       z-index: 10;
@@ -86,7 +110,8 @@
     .lane {
       position: relative;
       height: 19px;
-      width: 100%;
+      width: calc(100% - var(--timeline-inset) - var(--timeline-inset));
+      margin: 0 var(--timeline-inset);
       border-bottom: 1px dashed rgba(255,255,255,0.06);
     }
     .lane:last-child { border-bottom: none; }
@@ -300,10 +325,13 @@
       margin: 10px 2px 6px;
     }
     @media (max-width: 520px) {
+      .brand { gap: 6px; }
+      .brand-icon { width: 28px; height: 28px; }
+      h1 { font-size: 1rem; }
       body {
         justify-content: flex-start;
         gap: 4px;
-        padding-bottom: calc(116px + env(safe-area-inset-bottom, 0px));
+        padding-bottom: calc(270px + env(safe-area-inset-bottom, 0px));
       }
       .config-pill,
       .track-card { min-width: 0; }
@@ -328,6 +356,11 @@
         border-top: 1px solid var(--card-border);
         backdrop-filter: blur(16px);
       }
+      .play-dock .tempo-card {
+        margin-bottom: 8px !important;
+        padding: 8px 10px;
+      }
+      .play-dock .section-heading { margin: 0 2px 6px; }
       .play-btn { min-height: 54px; }
     }
     @media (max-width: 360px) {
@@ -343,6 +376,7 @@
   <div>
     <header>
       <div class="brand">
+        <img class="brand-icon" src="icon-192.png" alt="">
         <h1>Polymetrický Metronom</h1>
         <span class="badge">PWA</span>
       </div>
@@ -350,30 +384,10 @@
     </header>
 
     <div class="timeline-container" id="timeline">
-      <div class="playhead" id="playhead"></div>
-      <div class="lane" id="lane1"></div>
-      <div class="lane" id="lane2"></div>
-    </div>
-
-    <div class="card" style="margin-bottom: 8px;">
-      <div class="section-heading" style="margin-top: 0;">Tempo</div>
-      <div class="tempo-box">
-        <div style="display:flex; gap:4px;">
-          <button class="step-btn" id="bpmDown5">-5</button>
-          <button class="step-btn" id="bpmDown1">-1</button>
-        </div>
-        <div class="bpm-display">
-          <div class="bpm-val" id="bpmText">120</div>
-          <div class="bpm-sub">BPM (čtvrťové)</div>
-        </div>
-        <div style="display:flex; gap:4px;">
-          <button class="step-btn" id="bpmUp1">+1</button>
-          <button class="step-btn" id="bpmUp5">+5</button>
-        </div>
-        <button class="tap-btn" id="tapBtn">TAP</button>
-      </div>
-      <div class="slider-row">
-        <input type="range" id="bpmSlider" min="40" max="260" value="120">
+      <div class="timeline-track">
+        <div class="playhead" id="playhead"></div>
+        <div class="lane" id="lane1"></div>
+        <div class="lane" id="lane2"></div>
       </div>
     </div>
 
@@ -451,6 +465,27 @@
   </div>
 
   <div class="play-dock">
+    <div class="card tempo-card">
+      <div class="section-heading">Tempo</div>
+      <div class="tempo-box">
+        <div style="display:flex; gap:4px;">
+          <button class="step-btn" id="bpmDown5">-5</button>
+          <button class="step-btn" id="bpmDown1">-1</button>
+        </div>
+        <div class="bpm-display">
+          <div class="bpm-val" id="bpmText">120</div>
+          <div class="bpm-sub">BPM (čtvrťové)</div>
+        </div>
+        <div style="display:flex; gap:4px;">
+          <button class="step-btn" id="bpmUp1">+1</button>
+          <button class="step-btn" id="bpmUp5">+5</button>
+        </div>
+        <button class="tap-btn" id="tapBtn">TAP</button>
+      </div>
+      <div class="slider-row">
+        <input type="range" id="bpmSlider" min="40" max="260" value="120">
+      </div>
+    </div>
     <button class="play-btn" id="startBtn">
       <svg id="playIcon" width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
         <path d="M8 5v14l11-7z"/>
@@ -782,7 +817,10 @@
       const elapsed = (now - cycleStartTime) % cycleDurationSeconds;
       const progress = (elapsed / cycleDurationSeconds) * 100;
 
-      document.getElementById('playhead').style.left = progress + '%';
+      const timelineTrack = document.querySelector('.timeline-track');
+      const timelineInset = parseFloat(getComputedStyle(timelineTrack).getPropertyValue('--timeline-inset'));
+      document.getElementById('playhead').style.left =
+        (timelineInset + (progress / 100) * (timelineTrack.clientWidth - 2 * timelineInset)) + 'px';
 
       const flashWindow = 0.07;
       track1Ticks.forEach((t, i) => {
@@ -831,7 +869,7 @@
       isRunning = false;
       clearTimeout(timerID);
       cancelAnimationFrame(animFrame);
-      document.getElementById('playhead').style.left = '0%';
+      document.getElementById('playhead').style.left = 'var(--timeline-inset)';
       document.querySelectorAll('.tick-mark').forEach(el => el.classList.remove('active'));
 
       document.getElementById('startBtn').classList.remove('running');
