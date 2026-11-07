@@ -167,9 +167,25 @@
     }
     .step-beat + .step-beat { margin-top: 6px; }
     .step-beat-label {
+      display: block;
+      padding: 4px 7px;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      background: transparent;
       color: var(--text-muted);
+      font: inherit;
       font-size: 0.62rem;
       margin-bottom: 3px;
+      cursor: pointer;
+    }
+    .step-beat-label.accented {
+      color: var(--accent-amber);
+      border-color: rgba(245, 158, 11, 0.4);
+      background: rgba(245, 158, 11, 0.12);
+    }
+    .step-beat-label:focus-visible {
+      outline: 2px solid var(--accent-cyan);
+      outline-offset: 2px;
     }
     .step-cells {
       display: grid;
@@ -382,18 +398,6 @@
       display: block;
       margin-bottom: 2px;
     }
-    .accent-toggle {
-      min-height: 34px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      color: var(--text-main);
-      cursor: pointer;
-    }
-    .accent-toggle input {
-      accent-color: var(--accent-cyan);
-    }
     .play-btn {
       width: 100%;
       padding: 14px 0;
@@ -527,12 +531,6 @@
           <option value="custom">Vlastní rytmus</option>
         </select>
       </div>
-      <div class="config-pill">
-        <label class="accent-toggle">
-          <input id="accentFirstBeat" type="checkbox" checked>
-          <span>Akcent první doby</span>
-        </label>
-      </div>
     </div>
 
     <div class="section-heading">Zvukové stopy</div>
@@ -664,7 +662,6 @@
     let beatsPerBar = 4;
     let meterSubdivision = 4;
     let polyType = 'regular';
-    let accentFirstBeat = true;
 
     let vol1 = 0.9, isMute1 = false;
     let vol2 = 0.95, isMute2 = false;
@@ -682,6 +679,7 @@
     let track1Ticks = [];
     let track2Ticks = [];
     let customSteps = [];
+    const accentOverrides = [];
     let cycleDurationSeconds = 0;
 
     function initAudio() {
@@ -714,11 +712,9 @@
         const totalEighths = bars * 6;
         const secondsPerEighth = (60.0 / bpm) / 2;
         for (let i = 0; i < totalEighths; i++) {
-          const isMainBeat = (i % 3 === 0);
           track1Ticks.push({
             timeOffset: i * secondsPerEighth,
             isDownbeat: (i === 0),
-            isAccent: isMainBeat,
             index: i
           });
         }
@@ -726,12 +722,9 @@
         const totalEighths = bars * 7;
         const secondsPerEighth = (60.0 / bpm) / 2;
         for (let i = 0; i < totalEighths; i++) {
-          const barIndex = i % 7;
-          const isAccent = (barIndex === 0 || barIndex === 3 || barIndex === 5);
           track1Ticks.push({
             timeOffset: i * secondsPerEighth,
             isDownbeat: (i === 0),
-            isAccent: isAccent,
             index: i
           });
         }
@@ -741,11 +734,13 @@
           track1Ticks.push({
             timeOffset: i * secondsPerQuarter,
             isDownbeat: (i % beatsPerBar === 0),
-            isAccent: (i % beatsPerBar === 0),
             index: i
           });
         }
       }
+      track1Ticks.forEach((tick, index) => {
+        tick.isAccent = accentOverrides[index] ?? tick.isDownbeat;
+      });
 
       if (polyType === 'regular') {
         track2Ticks = [];
@@ -806,8 +801,8 @@
         ? 'Vlastní rytmus — šestnáctiny'
         : `Mřížka rytmu — ${document.getElementById('polyPreset').selectedOptions[0].textContent}`;
       document.getElementById('stepSequencerHelp').textContent = isCustom
-        ? 'Klepnutím zapnete nebo vypnete úder ve stopě Kontra.'
-        : 'Zelené značky ukazují údery. Klepnutím na čtvereček přejdete na vlastní rytmus.';
+        ? 'Klepnutím na označení doby přepnete její akcent. Čtverečky upravují stopu Kontra.'
+        : 'Klepnutím na označení doby přepnete její akcent. Čtverečky upraví stopu Kontra.';
       document.getElementById('clearRhythmBtn').hidden = !isCustom;
       stepGrid.replaceChildren();
 
@@ -825,9 +820,20 @@
         for (let beat = 0; beat < beatsPerBar; beat++) {
           const beatElement = document.createElement('div');
           beatElement.className = 'step-beat';
-          const beatLabel = document.createElement('div');
+          const beatIndex = bar * beatsPerBar + beat;
+          const beatTick = track1Ticks[beatIndex];
+          const beatLabel = document.createElement('button');
+          beatLabel.type = 'button';
           beatLabel.className = 'step-beat-label';
           beatLabel.textContent = `${meterSubdivision === 8 ? 'Osmina' : 'Doba'} ${beat + 1}`;
+          beatLabel.classList.toggle('accented', beatTick.isAccent);
+          beatLabel.dataset.accentBeat = String(beatIndex);
+          beatLabel.setAttribute('aria-pressed', String(beatTick.isAccent));
+          beatLabel.setAttribute(
+            'aria-label',
+            `Takt ${bar + 1}, ${beatLabel.textContent}: akcent ${beatTick.isAccent ? 'zapnutý' : 'vypnutý'}`
+          );
+          beatLabel.title = `Přepnout akcent: ${beatLabel.textContent}`;
           beatElement.appendChild(beatLabel);
 
           const cells = document.createElement('div');
@@ -884,7 +890,7 @@
 
       track1Ticks.forEach((tick, i) => {
         const div = document.createElement('div');
-        div.className = 'tick-mark tick-p1' + (tick.isDownbeat ? ' downbeat' : '');
+        div.className = 'tick-mark tick-p1' + (tick.isAccent ? ' downbeat' : '');
         div.style.left = (tick.timeOffset / cycleDurationSeconds * 100) + '%';
         div.id = 't1_tick_' + i;
         lane1.appendChild(div);
@@ -1096,7 +1102,7 @@
         track1Ticks.forEach(tick => {
           const t = startTime + tick.timeOffset;
           if (t >= audioCtx.currentTime - 0.01) {
-            playSound(sndType1, accentFirstBeat && tick.isDownbeat, t, vol1);
+            playSound(sndType1, tick.isAccent, t, vol1);
           }
         });
       }
@@ -1267,6 +1273,16 @@
     });
 
     document.getElementById('stepGrid').addEventListener('click', (e) => {
+      const accentButton = e.target.closest('button[data-accent-beat]');
+      if (accentButton) {
+        const beatIndex = Number(accentButton.dataset.accentBeat);
+        const tick = track1Ticks[beatIndex];
+        if (!tick) return;
+        accentOverrides[beatIndex] = !tick.isAccent;
+        rebuildPattern();
+        return;
+      }
+
       const cell = e.target.closest('button[data-step]');
       if (!cell) return;
       const step = Number(cell.dataset.step);
@@ -1283,9 +1299,6 @@
 
     document.getElementById('sound1').addEventListener('change', (e) => sndType1 = e.target.value);
     document.getElementById('sound2').addEventListener('change', (e) => sndType2 = e.target.value);
-    document.getElementById('accentFirstBeat').addEventListener('change', (e) => {
-      accentFirstBeat = e.target.checked;
-    });
 
     document.getElementById('vol1').addEventListener('input', (e) => vol1 = parseFloat(e.target.value));
     document.getElementById('vol2').addEventListener('input', (e) => vol2 = parseFloat(e.target.value));
