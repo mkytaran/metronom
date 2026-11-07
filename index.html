@@ -234,6 +234,7 @@
     }
     .tempo-box {
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
       gap: 8px;
@@ -271,14 +272,15 @@
     }
     .step-btn:active { background: rgba(255,255,255,0.18); transform: scale(0.95); }
     .tap-btn {
-      padding: 0 12px;
-      height: 38px;
-      border-radius: 10px;
+      flex: 1 0 100%;
+      min-height: 72px;
+      padding: 0 16px;
+      border-radius: 12px;
       background: rgba(245, 158, 11, 0.12);
       border: 1px solid rgba(245, 158, 11, 0.35);
       color: var(--accent-amber);
       font-weight: 700;
-      font-size: 0.8rem;
+      font-size: 1.1rem;
       cursor: pointer;
     }
     .tap-btn:active { background: rgba(245, 158, 11, 0.28); }
@@ -440,7 +442,6 @@
       .step-btn { width: 40px; height: 40px; }
       .bpm-val { font-size: 1.8rem; }
       .bpm-sub { font-size: 0.6rem; }
-      .tap-btn { padding: 0 8px; }
       .section-heading { margin-top: 12px; }
       .play-dock {
         position: fixed;
