@@ -382,6 +382,18 @@
       display: block;
       margin-bottom: 2px;
     }
+    .accent-toggle {
+      min-height: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      color: var(--text-main);
+      cursor: pointer;
+    }
+    .accent-toggle input {
+      accent-color: var(--accent-cyan);
+    }
     .play-btn {
       width: 100%;
       padding: 14px 0;
@@ -515,6 +527,12 @@
           <option value="custom">Vlastní rytmus</option>
         </select>
       </div>
+      <div class="config-pill">
+        <label class="accent-toggle">
+          <input id="accentFirstBeat" type="checkbox" checked>
+          <span>Akcent první doby</span>
+        </label>
+      </div>
     </div>
 
     <div class="section-heading">Zvukové stopy</div>
@@ -646,6 +664,7 @@
     let beatsPerBar = 4;
     let meterSubdivision = 4;
     let polyType = 'regular';
+    let accentFirstBeat = true;
 
     let vol1 = 0.9, isMute1 = false;
     let vol2 = 0.95, isMute2 = false;
@@ -1077,7 +1096,7 @@
         track1Ticks.forEach(tick => {
           const t = startTime + tick.timeOffset;
           if (t >= audioCtx.currentTime - 0.01) {
-            playSound(sndType1, tick.isDownbeat, t, vol1);
+            playSound(sndType1, accentFirstBeat && tick.isDownbeat, t, vol1);
           }
         });
       }
@@ -1264,6 +1283,9 @@
 
     document.getElementById('sound1').addEventListener('change', (e) => sndType1 = e.target.value);
     document.getElementById('sound2').addEventListener('change', (e) => sndType2 = e.target.value);
+    document.getElementById('accentFirstBeat').addEventListener('change', (e) => {
+      accentFirstBeat = e.target.checked;
+    });
 
     document.getElementById('vol1').addEventListener('input', (e) => vol1 = parseFloat(e.target.value));
     document.getElementById('vol2').addEventListener('input', (e) => vol2 = parseFloat(e.target.value));
