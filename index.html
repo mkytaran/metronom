@@ -74,7 +74,7 @@
       backdrop-filter: blur(12px);
     }
     .timeline-container {
-      height: 42px;
+      height: 98px;
       background: rgba(15, 23, 42, 0.85);
       border: 1px solid rgba(255,255,255,0.06);
       border-radius: 10px;
@@ -85,7 +85,7 @@
     .timeline-track {
       --timeline-inset: 5px;
       position: relative;
-      height: 38px;
+      height: 94px;
     }
     .timeline-track::before {
       content: "";
@@ -109,7 +109,7 @@
     }
     .lane {
       position: relative;
-      height: 19px;
+      height: 47px;
       width: calc(100% - var(--timeline-inset) - var(--timeline-inset));
       margin: 0 var(--timeline-inset);
       border-bottom: 1px dashed rgba(255,255,255,0.06);
@@ -118,16 +118,30 @@
     .tick-mark {
       position: absolute;
       top: 1px;
-      width: 12px;
-      height: 17px;
-      border-radius: 3px;
+      width: 44px;
+      height: 44px;
+      border-radius: 6px;
       transform: translateX(-50%);
       transition: transform 0.08s ease, filter 0.08s ease;
     }
-    .tick-p1 { background: #06b6d4; opacity: 0.6; cursor: pointer; }
-    .tick-p1.downbeat { background: #38bdf8; width: 14px; opacity: 0.95; }
+    .tick-mark::before {
+      content: "";
+      position: absolute;
+      top: 2px;
+      bottom: 2px;
+      left: 50%;
+      width: 16px;
+      border-radius: 3px;
+      background: #10b981;
+      opacity: 0.7;
+      transform: translateX(-50%);
+    }
+    .tick-p1 { cursor: pointer; }
+    .tick-p1::before { background: #06b6d4; opacity: 0.6; }
+    .tick-p1.downbeat::before { background: #38bdf8; width: 20px; opacity: 0.95; }
+    .tick-p2 { width: 12px; height: 17px; background: #10b981; opacity: 0.7; }
+    .tick-p2::before { display: none; }
     .tick-p1:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
-    .tick-p2 { background: #10b981; opacity: 0.7; }
     .tick-mark.active {
       transform: translateX(-50%) scale(1.4);
       filter: brightness(1.6) drop-shadow(0 0 6px currentColor);
@@ -272,15 +286,14 @@
     }
     .step-btn:active { background: rgba(255,255,255,0.18); transform: scale(0.95); }
     .tap-btn {
-      flex: 1 0 100%;
-      min-height: 72px;
-      padding: 0 16px;
-      border-radius: 12px;
+      padding: 0 12px;
+      height: 38px;
+      border-radius: 10px;
       background: rgba(245, 158, 11, 0.12);
       border: 1px solid rgba(245, 158, 11, 0.35);
       color: var(--accent-amber);
       font-weight: 700;
-      font-size: 1.1rem;
+      font-size: 0.8rem;
       cursor: pointer;
     }
     .tap-btn:active { background: rgba(245, 158, 11, 0.28); }
@@ -442,6 +455,7 @@
       .step-btn { width: 40px; height: 40px; }
       .bpm-val { font-size: 1.8rem; }
       .bpm-sub { font-size: 0.6rem; }
+      .tap-btn { padding: 0 8px; }
       .section-heading { margin-top: 12px; }
       .play-dock {
         position: fixed;

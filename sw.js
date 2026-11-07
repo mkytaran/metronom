@@ -1,4 +1,4 @@
-const CACHE_NAME = 'polymetric-metronome-v24';
+const CACHE_NAME = 'polymetric-metronome-v25';
 const ASSETS = [
   './',
   './index.html',
