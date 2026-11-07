@@ -529,10 +529,10 @@
           <option value="woodblock">Dřevěný Woodblock</option>
           <option value="soft_claves">Dřívka (jemný klik)</option>
           <option value="deep_claves">Dřívka (hlubší tón)</option>
-          <option value="mechanical_metronome" selected>Mechanický metronom</option>
+          <option value="mechanical_metronome">Mechanický metronom</option>
           <option value="rimshot">Rimshot / Klik</option>
           <option value="cowbell">Cowbell (Agogô)</option>
-          <option value="beep">Pípnutí / Beep</option>
+          <option value="beep" selected>Pípnutí / Beep</option>
         </select>
         <div class="track-ctrls">
           <span style="color:var(--text-muted);">Hlasitost</span>
@@ -549,10 +549,11 @@
           <option value="cowbell">Cowbell (Zvon)</option>
           <option value="soft_claves">Dřívka (jemný klik)</option>
           <option value="deep_claves">Dřívka (hlubší tón)</option>
-          <option value="mechanical_metronome" selected>Mechanický metronom</option>
+          <option value="mechanical_metronome">Mechanický metronom</option>
           <option value="clave">Kovové Clave</option>
           <option value="woodblock">Dřevěný Block</option>
           <option value="shaker">Maracas / Shaker</option>
+          <option value="beep" selected>Pípnutí / Beep</option>
         </select>
         <div class="track-ctrls">
           <span style="color:var(--text-muted);">Hlasitost</span>
@@ -650,8 +651,8 @@
 
     let vol1 = 0.9, isMute1 = false;
     let vol2 = 0.95, isMute2 = false;
-    let sndType1 = 'mechanical_metronome';
-    let sndType2 = 'mechanical_metronome';
+    let sndType1 = 'beep';
+    let sndType2 = 'beep';
 
     let tapTimes = [];
     const LOOKAHEAD_MS = 25.0;
