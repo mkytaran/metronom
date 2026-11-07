@@ -124,8 +124,9 @@
       transform: translateX(-50%);
       transition: transform 0.08s ease, filter 0.08s ease;
     }
-    .tick-p1 { background: #06b6d4; opacity: 0.6; }
+    .tick-p1 { background: #06b6d4; opacity: 0.6; cursor: pointer; }
     .tick-p1.downbeat { background: #38bdf8; width: 9px; opacity: 0.95; }
+    .tick-p1:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
     .tick-p2 { background: #10b981; opacity: 0.7; }
     .tick-mark.active {
       transform: translateX(-50%) scale(1.4);
@@ -167,25 +168,9 @@
     }
     .step-beat + .step-beat { margin-top: 6px; }
     .step-beat-label {
-      display: block;
-      padding: 4px 7px;
-      border: 1px solid transparent;
-      border-radius: 6px;
-      background: transparent;
       color: var(--text-muted);
-      font: inherit;
       font-size: 0.62rem;
       margin-bottom: 3px;
-      cursor: pointer;
-    }
-    .step-beat-label.accented {
-      color: var(--accent-amber);
-      border-color: rgba(245, 158, 11, 0.4);
-      background: rgba(245, 158, 11, 0.12);
-    }
-    .step-beat-label:focus-visible {
-      outline: 2px solid var(--accent-cyan);
-      outline-offset: 2px;
     }
     .step-cells {
       display: grid;
@@ -801,8 +786,8 @@
         ? 'Vlastní rytmus — šestnáctiny'
         : `Mřížka rytmu — ${document.getElementById('polyPreset').selectedOptions[0].textContent}`;
       document.getElementById('stepSequencerHelp').textContent = isCustom
-        ? 'Klepnutím na označení doby přepnete její akcent. Čtverečky upravují stopu Kontra.'
-        : 'Klepnutím na označení doby přepnete její akcent. Čtverečky upraví stopu Kontra.';
+        ? 'Klepnutím zapnete nebo vypnete úder ve stopě Kontra.'
+        : 'Zelené značky ukazují údery. Klepnutím na čtvereček přejdete na vlastní rytmus.';
       document.getElementById('clearRhythmBtn').hidden = !isCustom;
       stepGrid.replaceChildren();
 
@@ -820,20 +805,9 @@
         for (let beat = 0; beat < beatsPerBar; beat++) {
           const beatElement = document.createElement('div');
           beatElement.className = 'step-beat';
-          const beatIndex = bar * beatsPerBar + beat;
-          const beatTick = track1Ticks[beatIndex];
-          const beatLabel = document.createElement('button');
-          beatLabel.type = 'button';
+          const beatLabel = document.createElement('div');
           beatLabel.className = 'step-beat-label';
           beatLabel.textContent = `${meterSubdivision === 8 ? 'Osmina' : 'Doba'} ${beat + 1}`;
-          beatLabel.classList.toggle('accented', beatTick.isAccent);
-          beatLabel.dataset.accentBeat = String(beatIndex);
-          beatLabel.setAttribute('aria-pressed', String(beatTick.isAccent));
-          beatLabel.setAttribute(
-            'aria-label',
-            `Takt ${bar + 1}, ${beatLabel.textContent}: akcent ${beatTick.isAccent ? 'zapnutý' : 'vypnutý'}`
-          );
-          beatLabel.title = `Přepnout akcent: ${beatLabel.textContent}`;
           beatElement.appendChild(beatLabel);
 
           const cells = document.createElement('div');
@@ -893,6 +867,12 @@
         div.className = 'tick-mark tick-p1' + (tick.isAccent ? ' downbeat' : '');
         div.style.left = (tick.timeOffset / cycleDurationSeconds * 100) + '%';
         div.id = 't1_tick_' + i;
+        div.dataset.accentBeat = String(i);
+        div.setAttribute('role', 'button');
+        div.setAttribute('tabindex', '0');
+        div.setAttribute('aria-pressed', String(tick.isAccent));
+        div.setAttribute('aria-label', `Akcent doby ${i + 1}: ${tick.isAccent ? 'zapnutý' : 'vypnutý'}`);
+        div.title = `Přepnout akcent doby ${i + 1}`;
         lane1.appendChild(div);
       });
 
@@ -1117,6 +1097,27 @@
       }
     }
 
+    function toggleBeatAccent(tickElement) {
+      const beatIndex = Number(tickElement.dataset.accentBeat);
+      const tick = track1Ticks[beatIndex];
+      if (!tick) return;
+      accentOverrides[beatIndex] = !tick.isAccent;
+      rebuildPattern();
+    }
+
+    document.getElementById('lane1').addEventListener('click', (e) => {
+      const tick = e.target.closest('.tick-p1[data-accent-beat]');
+      if (tick) toggleBeatAccent(tick);
+    });
+
+    document.getElementById('lane1').addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      const tick = e.target.closest('.tick-p1[data-accent-beat]');
+      if (!tick) return;
+      e.preventDefault();
+      toggleBeatAccent(tick);
+    });
+
     let animFrame = null;
     function updatePlayhead() {
       if (!isRunning || !audioCtx) return;
@@ -1273,16 +1274,6 @@
     });
 
     document.getElementById('stepGrid').addEventListener('click', (e) => {
-      const accentButton = e.target.closest('button[data-accent-beat]');
-      if (accentButton) {
-        const beatIndex = Number(accentButton.dataset.accentBeat);
-        const tick = track1Ticks[beatIndex];
-        if (!tick) return;
-        accentOverrides[beatIndex] = !tick.isAccent;
-        rebuildPattern();
-        return;
-      }
-
       const cell = e.target.closest('button[data-step]');
       if (!cell) return;
       const step = Number(cell.dataset.step);
